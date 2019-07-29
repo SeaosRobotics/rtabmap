@@ -191,15 +191,23 @@ std::map<int, Transform> MarkerDetector::detect(const cv::Mat & image, const Cam
 				}
 			}
 
-			cv::Mat R;
-			cv::Rodrigues(rvecs[i], R);
-			Transform t(R.at<double>(0,0), R.at<double>(0,1), R.at<double>(0,2), tvecs[i].val[0],
-						   R.at<double>(1,0), R.at<double>(1,1), R.at<double>(1,2), tvecs[i].val[1],
-						   R.at<double>(2,0), R.at<double>(2,1), R.at<double>(2,2), tvecs[i].val[2]);
+			if (tvecs[i].val[2] < 4) // 4 Mts
+			{
+				cv::Mat R;
+				cv::Rodrigues(rvecs[i], R);
+				Transform t(R.at<double>(0,0), R.at<double>(0,1), R.at<double>(0,2), tvecs[i].val[0],
+							R.at<double>(1,0), R.at<double>(1,1), R.at<double>(1,2), tvecs[i].val[1],
+							R.at<double>(2,0), R.at<double>(2,1), R.at<double>(2,2), tvecs[i].val[2]);
 
-			Transform pose = model.localTransform() * t;
-			detections.insert(std::make_pair(ids[i], pose));
-			UDEBUG("Marker %d detected at %s (%s)", ids[i], pose.prettyPrint().c_str(), t.prettyPrint().c_str());
+				Transform pose = model.localTransform() * t;
+				detections.insert(std::make_pair(ids[i], pose));
+				UDEBUG("Marker %d detected at %s (%s)", ids[i], pose.prettyPrint().c_str(), t.prettyPrint().c_str());
+			}
+			else
+			{
+				UDEBUG("Marker %d detected at %s (%s) but grater than 4 Mts.", ids[i], pose.prettyPrint().c_str(), t.prettyPrint().c_str());
+			}
+			
 		}
 		if(markerLength_ == 0)
 		{
