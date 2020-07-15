@@ -77,7 +77,7 @@ public:
 		kPanelAll = 15
 	};
 	// TODO, tried to change the name of PANEL_FLAGS to PanelFlags... but signals/slots errors appeared...
-	Q_DECLARE_FLAGS(PANEL_FLAGS, PanelFlag);
+	Q_DECLARE_FLAGS(PANEL_FLAGS, PanelFlag)
 
 	enum Src {
 		kSrcUndef = -1,
@@ -104,6 +104,7 @@ public:
 		kSrcStereoUsb      = 105,
 		kSrcStereoTara 	   = 106,
 		kSrcStereoRealSense2 = 107,
+		kSrcStereoMyntEye  = 108,
 
 		kSrcRGB            = 200,
 		kSrcUsbDevice      = 200,
@@ -160,13 +161,18 @@ public:
 	bool isWordsCountGraphView() const;
 	bool isLocalizationsCountGraphView() const;
 	int getOdomRegistrationApproach() const;
+	double getOdomF2MGravitySigma() const;
 	bool isOdomDisabled() const;
 	bool isGroundTruthAligned() const;
 
 	bool isGraphsShown() const;
 	bool isLabelsShown() const;
+	bool isFramesShown() const;
 	bool isLandmarksShown() const;
 	double landmarkVisSize() const;
+	bool isIMUGravityShown(int index) const;
+	double getIMUGravityLength(int index) const;
+	bool isIMUAccShown() const;
 	bool isMarkerDetection() const;
 	double getMarkerLength() const;
 	double getVoxel() const;
@@ -324,6 +330,7 @@ private Q_SLOTS:
 	void updatePredictionPlot();
 	void updateKpROI();
 	void updateStereoDisparityVisibility();
+	void updateFeatureMatchingVisibility();
 	void useOdomFeatures();
 	void changeWorkingDirectory();
 	void changeDictionaryPath();
@@ -331,6 +338,9 @@ private Q_SLOTS:
 	void changeOdometryOKVISConfigPath();
 	void changeOdometryVINSConfigPath();
 	void changeIcpPMConfigPath();
+	void changeSuperPointModelPath();
+	void changePyMatcherPath();
+	void changePyMatcherModel();
 	void readSettingsEnd();
 	void setupTreeView();
 	void updateBasicParameter();
@@ -356,6 +366,7 @@ private Q_SLOTS:
 	void selectSourceOni2Path();
 	void selectSourceMKVPath();
 	void selectSourceSvoPath();
+	void selectSourceRealsense2JsonPath();
 	void updateSourceGrpVisibility();
 	void testOdometry();
 	void testCamera();
@@ -430,6 +441,8 @@ private:
 	QVector<QCheckBox*> _3dRenderingShowFeatures;
 	QVector<QCheckBox*> _3dRenderingShowFrustums;
 	QVector<QSpinBox*> _3dRenderingPtSizeFeatures;
+	QVector<QCheckBox*> _3dRenderingGravity;
+	QVector<QDoubleSpinBox*> _3dRenderingGravityLength;
 };
 
 Q_DECLARE_OPERATORS_FOR_FLAGS(PreferencesDialog::PANEL_FLAGS)

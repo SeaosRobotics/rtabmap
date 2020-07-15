@@ -140,6 +140,15 @@ public:
 	static Transform fromEigen3f(const Eigen::Isometry3f & matrix);
 	static Transform fromEigen3d(const Eigen::Isometry3d & matrix);
 
+	static Transform opengl_T_rtabmap() {return Transform(
+			 0.0f, -1.0f, 0.0f, 0.0f,
+			 0.0f,  0.0f, 1.0f, 0.0f,
+			-1.0f,  0.0f, 0.0f, 0.0f);}
+	static Transform rtabmap_T_opengl() {return Transform(
+			 0.0f,  0.0f,-1.0f, 0.0f,
+			-1.0f,  0.0f, 0.0f, 0.0f,
+			 0.0f,  1.0f, 0.0f, 0.0f);}
+
 	/**
 	 * Format (3 values): x y z
 	 * Format (6 values): x y z roll pitch yaw
@@ -150,10 +159,13 @@ public:
 	static Transform fromString(const std::string & string);
 	static bool canParseString(const std::string & string);
 
-	static Transform getClosestTransform(
+	static Transform getTransform(
+				const std::map<double, Transform> & tfBuffer,
+				const double & stamp);
+	RTABMAP_DEPRECATED(static Transform getClosestTransform(
 				const std::map<double, Transform> & tfBuffer,
 				const double & stamp,
-				double * stampDiff = 0);
+				double * stampDiff), "Use Transform::getTransform() instead to get always accurate transforms.");
 
 private:
 	cv::Mat data_;

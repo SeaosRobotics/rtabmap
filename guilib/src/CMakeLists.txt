@@ -28,6 +28,7 @@ SET(headers_ui
 	../include/${PROJECT_PREFIX}/gui/CreateSimpleCalibrationDialog.h
 	../include/${PROJECT_PREFIX}/gui/ParametersToolBox.h
 	../include/${PROJECT_PREFIX}/gui/DepthCalibrationDialog.h
+	../include/${PROJECT_PREFIX}/gui/EditConstraintDialog.h
 	./3rdParty/QMultiComboBox.h
 	../include/${PROJECT_PREFIX}/gui/TexturingState.h
 	../include/${PROJECT_PREFIX}/gui/RecoveryState.h
@@ -49,6 +50,7 @@ SET(uis
     ./ui/createSimpleCalibrationDialog.ui
     ./ui/depthCalibrationDialog.ui
     ./ui/exportBundlerDialog.ui
+    ./ui/editConstraintDialog.ui
 )
 
 SET(qrc 
@@ -96,6 +98,7 @@ SET(SRC_FILES
 	./ExportBundlerDialog.cpp
 	./PostProcessingDialog.cpp
 	./ExportCloudsDialog.cpp
+	./EditConstraintDialog.cpp
 	./MapVisibilityWidget.cpp
 	./GraphViewer.cpp
 	./EditDepthArea.cpp
@@ -136,6 +139,13 @@ IF(realsense2_FOUND)
 		${realsense2_INCLUDE_DIRS}
 	)
 ENDIF(realsense2_FOUND)
+# Hack as CameraK4A.h needs k4a include dir
+IF(k4a_FOUND)
+	SET(INCLUDE_DIRS
+		${INCLUDE_DIRS}
+		${k4a_INCLUDE_DIRS}
+	)
+ENDIF(k4a_FOUND)
 
 IF(QT4_FOUND)
     INCLUDE(${QT_USE_FILE})
@@ -147,7 +157,7 @@ SET(LIBRARIES
 	${PCL_LIBRARIES}
 )
 
-IF(OCTOMAP_FOUND)
+IF(octomap_FOUND)
 	SET(INCLUDE_DIRS
 		${INCLUDE_DIRS}
 		${OCTOMAP_INCLUDE_DIRS}
@@ -156,7 +166,7 @@ IF(OCTOMAP_FOUND)
 		${LIBRARIES}
 		${OCTOMAP_LIBRARIES}
 	)
-ENDIF(OCTOMAP_FOUND)
+ENDIF(octomap_FOUND)
 
 IF(CPUTSDF_FOUND)
 	SET(INCLUDE_DIRS
