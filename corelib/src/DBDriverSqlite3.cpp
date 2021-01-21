@@ -34,6 +34,14 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rtabmap/core/util3d.h"
 #include "rtabmap/core/Compression.h"
 #include "DatabaseSchema_sql.h"
+#include "DatabaseSchema_0_18_3_sql.h"
+#include "DatabaseSchema_0_18_0_sql.h"
+#include "DatabaseSchema_0_17_0_sql.h"
+#include "DatabaseSchema_0_16_2_sql.h"
+#include "DatabaseSchema_0_16_1_sql.h"
+#include "DatabaseSchema_0_16_0_sql.h"
+
+
 #include <set>
 
 #include "rtabmap/utilite/UtiLite.h"
@@ -383,6 +391,34 @@ bool DBDriverSqlite3::connectDatabaseQuery(const std::string & url, bool overwri
 		}
 		// Create the database
 		std::string schema = DATABASESCHEMA_SQL;
+		std::string targetVersion = this->getTargetVersion();
+		if(!targetVersion.empty())
+		{
+			// search for schema with version <= target version
+			std::vector<std::pair<std::string, std::string> > schemas;
+			schemas.push_back(std::make_pair("0.16.0", DATABASESCHEMA_0_16_0_SQL));
+			schemas.push_back(std::make_pair("0.16.1", DATABASESCHEMA_0_16_1_SQL));
+			schemas.push_back(std::make_pair("0.16.2", DATABASESCHEMA_0_16_2_SQL));
+			schemas.push_back(std::make_pair("0.17.0", DATABASESCHEMA_0_17_0_SQL));
+			schemas.push_back(std::make_pair("0.18.0", DATABASESCHEMA_0_18_0_SQL));
+			schemas.push_back(std::make_pair("0.18.3", DATABASESCHEMA_0_18_3_SQL));
+			schemas.push_back(std::make_pair(uNumber2Str(RTABMAP_VERSION_MAJOR)+"."+uNumber2Str(RTABMAP_VERSION_MINOR), DATABASESCHEMA_SQL));
+			for(size_t i=0; i<schemas.size(); ++i)
+			{
+				if(uStrNumCmp(targetVersion, schemas[i].first) < 0)
+				{
+					if(i==0)
+					{
+						UERROR("Cannot create database with target version \"%s\" (not implemented), using latest version.", targetVersion.c_str());
+					}
+					break;
+				}
+				else
+				{
+					schema = schemas[i].second;
+				}
+			}
+		}
 		schema = uHex2Str(schema);
 		this->executeNoResultQuery(schema.c_str());
 	}
@@ -5057,7 +5093,7 @@ cv::Mat DBDriverSqlite3::load2DMapQuery(float & xMin, float & yMin, float & cell
 
 void DBDriverSqlite3::saveOptimizedMeshQuery(
 			const cv::Mat & cloud,
-			const std::vector<std::vector<std::vector<unsigned int> > > & polygons,
+			const std::vector<std::vector<std::vector<RTABMAP_PCL_INDEX> > > & polygons,
 #if PCL_VERSION_COMPARE(>=, 1, 8, 0)
 			const std::vector<std::vector<Eigen::Vector2f, Eigen::aligned_allocator<Eigen::Vector2f> > > & texCoords,
 #else
@@ -5252,7 +5288,7 @@ void DBDriverSqlite3::saveOptimizedMeshQuery(
 }
 
 cv::Mat DBDriverSqlite3::loadOptimizedMeshQuery(
-			std::vector<std::vector<std::vector<unsigned int> > > * polygons,
+			std::vector<std::vector<std::vector<RTABMAP_PCL_INDEX> > > * polygons,
 #if PCL_VERSION_COMPARE(>=, 1, 8, 0)
 			std::vector<std::vector<Eigen::Vector2f, Eigen::aligned_allocator<Eigen::Vector2f> > > * texCoords,
 #else
@@ -5314,7 +5350,7 @@ cv::Mat DBDriverSqlite3::loadOptimizedMeshQuery(
 					for(int t=0; t<serializedPolygons.cols; ++t)
 					{
 						UASSERT(serializedPolygons.at<int>(t) > 0);
-						std::vector<std::vector<unsigned int> > materialPolygons(serializedPolygons.at<int>(t), std::vector<unsigned int>(polygonSize));
+						std::vector<std::vector<RTABMAP_PCL_INDEX> > materialPolygons(serializedPolygons.at<int>(t), std::vector<RTABMAP_PCL_INDEX>(polygonSize));
 						++t;
 						UASSERT(t < serializedPolygons.cols);
 						UDEBUG("materialPolygons=%d", (int)materialPolygons.size());

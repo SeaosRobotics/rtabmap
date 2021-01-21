@@ -435,12 +435,12 @@ MainWindow::MainWindow(PreferencesDialog * prefDialog, QWidget * parent, bool sh
 	connect(_ui->actionRealSense_R200, SIGNAL(triggered()), this, SLOT(selectRealSense()));
 	connect(_ui->actionRealSense_ZR300, SIGNAL(triggered()), this, SLOT(selectRealSense()));
 	connect(_ui->actionRealSense2_SR300, SIGNAL(triggered()), this, SLOT(selectRealSense2()));
-	connect(_ui->actionRealSense2_D415, SIGNAL(triggered()), this, SLOT(selectRealSense2()));
-	connect(_ui->actionRealSense2_D435, SIGNAL(triggered()), this, SLOT(selectRealSense2()));
+	connect(_ui->actionRealSense2_D400, SIGNAL(triggered()), this, SLOT(selectRealSense2()));
+	connect(_ui->actionRealSense2_L515, SIGNAL(triggered()), this, SLOT(selectRealSense2L515()));
 	connect(_ui->actionStereoDC1394, SIGNAL(triggered()), this, SLOT(selectStereoDC1394()));
 	connect(_ui->actionStereoFlyCapture2, SIGNAL(triggered()), this, SLOT(selectStereoFlyCapture2()));
 	connect(_ui->actionStereoZed, SIGNAL(triggered()), this, SLOT(selectStereoZed()));
-     connect(_ui->actionStereoTara, SIGNAL(triggered()), this, SLOT(selectStereoTara()));
+    connect(_ui->actionStereoTara, SIGNAL(triggered()), this, SLOT(selectStereoTara()));
 	connect(_ui->actionStereoUsb, SIGNAL(triggered()), this, SLOT(selectStereoUsb()));
 	connect(_ui->actionRealSense2_T265, SIGNAL(triggered()), this, SLOT(selectRealSense2Stereo()));
 	connect(_ui->actionMYNT_EYE_S_SDK, SIGNAL(triggered()), this, SLOT(selectMyntEyeS()));
@@ -456,8 +456,8 @@ MainWindow::MainWindow(PreferencesDialog * prefDialog, QWidget * parent, bool sh
 	_ui->actionRealSense_R200->setEnabled(CameraRealSense::available());
 	_ui->actionRealSense_ZR300->setEnabled(CameraRealSense::available());
 	_ui->actionRealSense2_SR300->setEnabled(CameraRealSense2::available());
-	_ui->actionRealSense2_D415->setEnabled(CameraRealSense2::available());
-	_ui->actionRealSense2_D435->setEnabled(CameraRealSense2::available());
+	_ui->actionRealSense2_D400->setEnabled(CameraRealSense2::available());
+	_ui->actionRealSense2_L515->setEnabled(CameraRealSense2::available());
 	_ui->actionRealSense2_T265->setEnabled(CameraRealSense2::available());
 	_ui->actionStereoDC1394->setEnabled(CameraStereoDC1394::available());
 	_ui->actionStereoFlyCapture2->setEnabled(CameraStereoFlyCapture2::available());
@@ -1153,17 +1153,42 @@ void MainWindow::processOdometry(const rtabmap::OdometryEvent & odom, bool dataI
 				{
 					if(!lost)
 					{
-						pcl::PointCloud<pcl::PointNormal>::Ptr cloud;
-						cloud = util3d::laserScanToPointCloudNormal(odom.info().localScanMap, odom.info().localScanMap.localTransform());
-						bool scanAdded = _cloudViewer->getAddedClouds().contains("scanMapOdom");
-						if(!_cloudViewer->addCloud("scanMapOdom", cloud, _odometryCorrection, Qt::blue))
+						bool scanAlreadyThere = _cloudViewer->getAddedClouds().contains("scanMapOdom");
+						bool scanAdded = false;
+						if(odom.info().localScanMap.hasIntensity() && odom.info().localScanMap.hasNormals())
+						{
+							scanAdded = _cloudViewer->addCloud("scanMapOdom",
+									util3d::laserScanToPointCloudINormal(odom.info().localScanMap, odom.info().localScanMap.localTransform()),
+									_odometryCorrection, Qt::blue);
+						}
+						else if(odom.info().localScanMap.hasNormals())
+						{
+							scanAdded = _cloudViewer->addCloud("scanMapOdom",
+									util3d::laserScanToPointCloudNormal(odom.info().localScanMap, odom.info().localScanMap.localTransform()),
+									_odometryCorrection, Qt::blue);
+						}
+						else if(odom.info().localScanMap.hasIntensity())
+						{
+							scanAdded = _cloudViewer->addCloud("scanMapOdom",
+									util3d::laserScanToPointCloudI(odom.info().localScanMap, odom.info().localScanMap.localTransform()),
+									_odometryCorrection, Qt::blue);
+						}
+						else
+						{
+							scanAdded = _cloudViewer->addCloud("scanMapOdom",
+									util3d::laserScanToPointCloud(odom.info().localScanMap, odom.info().localScanMap.localTransform()),
+									_odometryCorrection, Qt::blue);
+						}
+
+
+						if(!scanAdded)
 						{
 							UERROR("Adding scanMapOdom to viewer failed!");
 						}
 						else
 						{
 							_cloudViewer->setCloudVisibility("scanMapOdom", true);
-							_cloudViewer->setCloudColorIndex("scanMapOdom", scanAdded && _preferencesDialog->getScanColorScheme(1)==0 && odom.info().localScanMap.is2d()?2:_preferencesDialog->getScanColorScheme(1));
+							_cloudViewer->setCloudColorIndex("scanMapOdom", scanAlreadyThere && _preferencesDialog->getScanColorScheme(1)==0 && odom.info().localScanMap.is2d()?2:_preferencesDialog->getScanColorScheme(1));
 							_cloudViewer->setCloudOpacity("scanMapOdom", _preferencesDialog->getScanOpacity(1));
 							_cloudViewer->setCloudPointSize("scanMapOdom", _preferencesDialog->getScanPointSize(1));
 						}
@@ -1184,23 +1209,58 @@ void MainWindow::processOdometry(const rtabmap::OdometryEvent & odom, bool dataI
 								_preferencesDialog->getScanMinRange(1),
 								_preferencesDialog->getScanMaxRange(1));
 					}
+					bool scanAlreadyThere = _cloudViewer->getAddedClouds().contains("scanOdom");
+					bool scanAdded = false;
 
-					pcl::PointCloud<pcl::PointNormal>::Ptr cloud;
-					cloud = util3d::laserScanToPointCloudNormal(scan, pose*scan.localTransform());
-					if(_preferencesDialog->getCloudVoxelSizeScan(1) > 0.0)
+					if(odom.info().localScanMap.hasIntensity() && odom.info().localScanMap.hasNormals())
 					{
-						cloud = util3d::voxelize(cloud, _preferencesDialog->getCloudVoxelSizeScan(1));
+						pcl::PointCloud<pcl::PointXYZINormal>::Ptr cloud;
+						cloud = util3d::laserScanToPointCloudINormal(scan, pose*scan.localTransform());
+						if(_preferencesDialog->getCloudVoxelSizeScan(1) > 0.0)
+						{
+							cloud = util3d::voxelize(cloud, _preferencesDialog->getCloudVoxelSizeScan(1));
+						}
+						scanAdded = _cloudViewer->addCloud("scanOdom", cloud, _odometryCorrection, Qt::magenta);
+					}
+					else if(odom.info().localScanMap.hasNormals())
+					{
+						pcl::PointCloud<pcl::PointNormal>::Ptr cloud;
+						cloud = util3d::laserScanToPointCloudNormal(scan, pose*scan.localTransform());
+						if(_preferencesDialog->getCloudVoxelSizeScan(1) > 0.0)
+						{
+							cloud = util3d::voxelize(cloud, _preferencesDialog->getCloudVoxelSizeScan(1));
+						}
+						scanAdded = _cloudViewer->addCloud("scanOdom", cloud, _odometryCorrection, Qt::magenta);
+					}
+					else if(odom.info().localScanMap.hasIntensity())
+					{
+						pcl::PointCloud<pcl::PointXYZI>::Ptr cloud;
+						cloud = util3d::laserScanToPointCloudI(scan, pose*scan.localTransform());
+						if(_preferencesDialog->getCloudVoxelSizeScan(1) > 0.0)
+						{
+							cloud = util3d::voxelize(cloud, _preferencesDialog->getCloudVoxelSizeScan(1));
+						}
+						scanAdded = _cloudViewer->addCloud("scanOdom", cloud, _odometryCorrection, Qt::magenta);
+					}
+					else
+					{
+						pcl::PointCloud<pcl::PointXYZ>::Ptr cloud;
+						cloud = util3d::laserScanToPointCloud(scan, pose*scan.localTransform());
+						if(_preferencesDialog->getCloudVoxelSizeScan(1) > 0.0)
+						{
+							cloud = util3d::voxelize(cloud, _preferencesDialog->getCloudVoxelSizeScan(1));
+						}
+						scanAdded = _cloudViewer->addCloud("scanOdom", cloud, _odometryCorrection, Qt::magenta);
 					}
 
-					bool scanAdded = !_cloudViewer->getAddedClouds().contains("scanOdom");
-					if(!_cloudViewer->addCloud("scanOdom", cloud, _odometryCorrection, Qt::magenta))
+					if(!scanAdded)
 					{
 						UERROR("Adding scanOdom to viewer failed!");
 					}
 					else
 					{
 						_cloudViewer->setCloudVisibility("scanOdom", true);
-						_cloudViewer->setCloudColorIndex("scanOdom", scanAdded && _preferencesDialog->getScanColorScheme(1)==0 && scan.is2d()?2:_preferencesDialog->getScanColorScheme(1));
+						_cloudViewer->setCloudColorIndex("scanOdom", scanAlreadyThere && _preferencesDialog->getScanColorScheme(1)==0 && scan.is2d()?2:_preferencesDialog->getScanColorScheme(1));
 						_cloudViewer->setCloudOpacity("scanOdom", _preferencesDialog->getScanOpacity(1));
 						_cloudViewer->setCloudPointSize("scanOdom", _preferencesDialog->getScanPointSize(1));
 						scanUpdated = true;
@@ -1704,16 +1764,16 @@ void MainWindow::processStats(const rtabmap::Statistics & stat)
 
 			// make sure data are uncompressed
 			// We don't need to uncompress images if we don't show them
-			bool uncompressImages =
+			bool uncompressImages = !signature.sensorData().imageCompressed().empty() && (
 					_ui->imageView_source->isVisible() ||
 					(_loopClosureViewer->isVisible() &&
 							!signature.sensorData().depthOrRightCompressed().empty()) ||
 					(_cloudViewer->isVisible() &&
 							_preferencesDialog->isCloudsShown(0) &&
-							!signature.sensorData().depthOrRightCompressed().empty());
-			bool uncompressScan =
+							!signature.sensorData().depthOrRightCompressed().empty()));
+			bool uncompressScan = !signature.sensorData().laserScanCompressed().isEmpty() && (
 					_loopClosureViewer->isVisible() ||
-					(_cloudViewer->isVisible() && _preferencesDialog->isScansShown(0));
+					(_cloudViewer->isVisible() && _preferencesDialog->isScansShown(0)));
 			cv::Mat tmpRgb, tmpDepth, tmpG, tmpO, tmpE;
 			LaserScan tmpScan;
 			signature.sensorData().uncompressData(
@@ -4665,12 +4725,12 @@ void MainWindow::updateSelectSourceMenu()
 	_ui->actionOpenNI2_sense->setChecked(_preferencesDialog->getSourceDriver() == PreferencesDialog::kSrcOpenNI2);
 	_ui->actionFreenect2->setChecked(_preferencesDialog->getSourceDriver() == PreferencesDialog::kSrcFreenect2);
 	_ui->actionKinect_for_Windows_SDK_v2->setChecked(_preferencesDialog->getSourceDriver() == PreferencesDialog::kSrcK4W2);
-	_ui->actionKinect_for_Azure->setChecked(_preferencesDialog->getSourceDriver() == PreferencesDialog::kSrcK4W2);
+	_ui->actionKinect_for_Azure->setChecked(_preferencesDialog->getSourceDriver() == PreferencesDialog::kSrcK4A);
 	_ui->actionRealSense_R200->setChecked(_preferencesDialog->getSourceDriver() == PreferencesDialog::kSrcRealSense);
 	_ui->actionRealSense_ZR300->setChecked(_preferencesDialog->getSourceDriver() == PreferencesDialog::kSrcRealSense);
 	_ui->actionRealSense2_SR300->setChecked(_preferencesDialog->getSourceDriver() == PreferencesDialog::kSrcRealSense2);
-	_ui->actionRealSense2_D415->setChecked(_preferencesDialog->getSourceDriver() == PreferencesDialog::kSrcRealSense2);
-	_ui->actionRealSense2_D435->setChecked(_preferencesDialog->getSourceDriver() == PreferencesDialog::kSrcRealSense2);
+	_ui->actionRealSense2_D400->setChecked(_preferencesDialog->getSourceDriver() == PreferencesDialog::kSrcRealSense2);
+	_ui->actionRealSense2_L515->setChecked(_preferencesDialog->getSourceDriver() == PreferencesDialog::kSrcRealSense2);
 	_ui->actionStereoDC1394->setChecked(_preferencesDialog->getSourceDriver() == PreferencesDialog::kSrcDC1394);
 	_ui->actionStereoFlyCapture2->setChecked(_preferencesDialog->getSourceDriver() == PreferencesDialog::kSrcFlyCapture2);
 	_ui->actionStereoZed->setChecked(_preferencesDialog->getSourceDriver() == PreferencesDialog::kSrcStereoZed);
@@ -5214,7 +5274,7 @@ void MainWindow::startDetection()
 			_preferencesDialog->getSourceScanVoxelSize(),
 			_preferencesDialog->getSourceScanNormalsK(),
 			_preferencesDialog->getSourceScanNormalsRadius(),
-			_preferencesDialog->isSourceScanForceGroundNormalsUp());
+			(float)_preferencesDialog->getSourceScanForceGroundNormalsUp());
 	if(_preferencesDialog->getIMUFilteringStrategy()>0 && dynamic_cast<DBReader*>(camera) == 0)
 	{
 		_camera->enableIMUFiltering(_preferencesDialog->getIMUFilteringStrategy()-1, parameters);
@@ -6420,6 +6480,10 @@ void MainWindow::selectRealSense()
 void MainWindow::selectRealSense2()
 {
 	_preferencesDialog->selectSourceDriver(PreferencesDialog::kSrcRealSense2);
+}
+void MainWindow::selectRealSense2L515()
+{
+	_preferencesDialog->selectSourceDriver(PreferencesDialog::kSrcRealSense2, 1);
 }
 
 void MainWindow::selectRealSense2Stereo()

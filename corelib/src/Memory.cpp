@@ -886,7 +886,7 @@ void Memory::addSignatureToStm(Signature * signature, const cv::Mat & covariance
 	// add signature on top of the short-term memory
 	if(signature)
 	{
-		UDEBUG("adding %d", signature->id());
+		UDEBUG("adding %d (pose=%s)", signature->id(), signature->getPose().prettyPrint().c_str());
 		// Update neighbors
 		if(_stMem.size())
 		{
@@ -1009,7 +1009,7 @@ void Memory::addSignatureToStm(Signature * signature, const cv::Mat & covariance
 
 		if(_vwd)
 		{
-			UDEBUG("%d words ref for the signature %d", signature->getWords().size(), signature->id());
+			UDEBUG("%d words ref for the signature %d (weight=%d)", signature->getWords().size(), signature->id(), signature->getWeight());
 		}
 		if(signature->getWords().size())
 		{
@@ -1536,7 +1536,7 @@ std::map<int, float> Memory::getNeighborsIdRadius(
 	nextMargin.insert(signatureId);
 	int m = 0;
 	Transform referential = optimizedPoses.at(signatureId);
-	UASSERT(!referential.isNull());
+	UASSERT_MSG(!referential.isNull(), uFormat("signatureId=%d", signatureId).c_str());
 	float radiusSqrd = radius*radius;
 	while((maxGraphDepth == 0 || m < maxGraphDepth) && nextMargin.size())
 	{
@@ -2083,7 +2083,7 @@ cv::Mat Memory::load2DMap(float & xMin, float & yMin, float & cellSize) const
 
 void Memory::saveOptimizedMesh(
 		const cv::Mat & cloud,
-		const std::vector<std::vector<std::vector<unsigned int> > > & polygons,
+		const std::vector<std::vector<std::vector<RTABMAP_PCL_INDEX> > > & polygons,
 #if PCL_VERSION_COMPARE(>=, 1, 8, 0)
 		const std::vector<std::vector<Eigen::Vector2f, Eigen::aligned_allocator<Eigen::Vector2f> > > & texCoords,
 #else
@@ -2098,7 +2098,7 @@ void Memory::saveOptimizedMesh(
 }
 
 cv::Mat Memory::loadOptimizedMesh(
-			std::vector<std::vector<std::vector<unsigned int> > > * polygons,
+			std::vector<std::vector<std::vector<RTABMAP_PCL_INDEX> > > * polygons,
 #if PCL_VERSION_COMPARE(>=, 1, 8, 0)
 			std::vector<std::vector<Eigen::Vector2f, Eigen::aligned_allocator<Eigen::Vector2f> > > * texCoords,
 #else
@@ -2357,7 +2357,7 @@ void Memory::moveToTrash(Signature * s, bool keepLinkedToGraph, std::list<int> *
 					}
 
 					// child
-					if(iter->second.type() == Link::kGlobalClosure && s->id() > sTo->id())
+					if(iter->second.type() == Link::kGlobalClosure && s->id() > sTo->id() && s->getWeight()>0)
 					{
 						sTo->setWeight(sTo->getWeight() + s->getWeight()); // copy weight
 					}
@@ -3660,6 +3660,10 @@ bool Memory::rehearsalMerge(int oldId, int newId)
 		{
 			fullMerge = newS->hasLink(oldS->id()) && newS->getLinks().begin()->second.transform().isNull();
 		}
+		UDEBUG("fullMerge=%s intermediateMerge=%s _idUpdatedToNewOneRehearsal=%s",
+				fullMerge?"true":"false",
+				intermediateMerge?"true":"false",
+				_idUpdatedToNewOneRehearsal?"true":"false");
 
 		if(fullMerge)
 		{
@@ -3725,6 +3729,7 @@ bool Memory::rehearsalMerge(int oldId, int newId)
 				}
 				newS->setWeight(-9);
 			}
+			UDEBUG("New weights: %d->%d %d->%d", oldS->id(), oldS->getWeight(), newS->id(), oldS->getWeight());
 
 			// remove location
 			moveToTrash(_idUpdatedToNewOneRehearsal?oldS:newS, _notLinkedNodesKeptInDb);
@@ -4253,6 +4258,8 @@ Signature * Memory::createSignature(const SensorData & inputData, const Transfor
 	int preDecimation = 1;
 	std::vector<cv::Point3f> keypoints3D;
 	SensorData decimatedData;
+	UDEBUG("Received kpts=%d kpts3D=%d, descriptors=%d _useOdometryFeatures=%s",
+			(int)data.keypoints().size(), (int)data.keypoints3D().size(), data.descriptors().rows, _useOdometryFeatures?"true":"false");
 	if(!_useOdometryFeatures ||
 		data.keypoints().empty() ||
 		(int)data.keypoints().size() != data.descriptors().rows ||
